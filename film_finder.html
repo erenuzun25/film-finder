@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Film Finder</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+min-height:100vh;
+font-family:Arial,Helvetica,sans-serif;
+color:#f5f7ff;
+background:
+radial-gradient(circle at 15% 10%,rgba(94,92,230,.25),transparent 30%),
+radial-gradient(circle at 85% 20%,rgba(0,210,255,.18),transparent 30%),
+linear-gradient(135deg,#070b16,#10182c 50%,#080b14);
+padding:20px
+}
+.container{width:min(1100px,100%);margin:auto}
+.hero{text-align:center;padding:45px 20px 35px}
+.logo{font-size:48px;margin-bottom:12px}
+.hero h1{font-size:clamp(34px,7vw,64px);letter-spacing:-2px;margin-bottom:12px}
+.hero p{color:#aeb8d0;font-size:17px;max-width:650px;margin:auto;line-height:1.6}
+.progress-wrap{position:sticky;top:10px;z-index:10;margin-bottom:20px}
+.progress{height:7px;background:rgba(255,255,255,.08);border-radius:50px;overflow:hidden}
+.progress-bar{height:100%;width:0%;background:linear-gradient(90deg,#7c5cff,#00d9ff);border-radius:50px;transition:width .3s}
+.question-card{
+margin-bottom:18px;padding:28px;border-radius:24px;
+background:rgba(255,255,255,.055);
+border:1px solid rgba(255,255,255,.09);
+backdrop-filter:blur(18px);
+box-shadow:0 20px 60px rgba(0,0,0,.22)
+}
+.question-number{color:#7c8cff;font-size:13px;font-weight:bold;margin-bottom:9px;letter-spacing:1px}
+.question-card h2{font-size:22px;margin-bottom:20px}
+.options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.option{
+border:1px solid rgba(255,255,255,.09);
+background:rgba(255,255,255,.045);
+color:#eef2ff;padding:16px;border-radius:16px;
+cursor:pointer;transition:.2s;text-align:left
+}
+.option:hover{transform:translateY(-2px);border-color:#7c5cff;background:rgba(124,92,255,.12)}
+.option.selected{border-color:#7c5cff;background:rgba(124,92,255,.2);box-shadow:0 0 0 1px rgba(124,92,255,.3)}
+.option-title{font-weight:700;margin-bottom:5px}
+.option-description{color:#9da8c0;font-size:13px;line-height:1.4}
+.action-area{text-align:center;padding:35px 0 70px}
+#recommendButton{
+border:0;padding:18px 34px;border-radius:18px;font-size:17px;font-weight:800;
+color:white;cursor:pointer;background:linear-gradient(135deg,#7258ff,#00bfe9);
+box-shadow:0 15px 40px rgba(0,180,255,.18);transition:.2s
+}
+#recommendButton:hover{transform:translateY(-3px)}
+#recommendButton:disabled{opacity:.6;cursor:wait}
+.results-section{padding:35px 0 70px;scroll-margin-top:25px}
+.results-title{text-align:center;margin-bottom:30px}
+.results-title h2{font-size:clamp(27px,5vw,42px);margin-bottom:10px}
+.results-title p{color:#9da8c0}
+.results{display:grid;gap:18px}
+.movie-card{
+display:grid;grid-template-columns:150px 1fr;gap:22px;padding:20px;
+border-radius:22px;background:rgba(255,255,255,.055);
+border:1px solid rgba(255,255,255,.09);backdrop-filter:blur(18px)
+}
+.poster{width:150px;height:220px;border-radius:15px;object-fit:cover;background:#161c2e}
+.movie-info h3{font-size:23px;margin-bottom:8px}
+.movie-meta{color:#9da8c0;font-size:14px;margin-bottom:14px}
+.match{
+display:inline-block;padding:7px 11px;border-radius:10px;
+background:rgba(0,220,180,.12);color:#6ff0ce;font-weight:800;
+font-size:13px;margin-bottom:15px
+}
+.reason{color:#d8def0;line-height:1.6;margin-bottom:18px}
+.detail-button{
+border:1px solid rgba(124,92,255,.5);background:rgba(124,92,255,.1);
+color:#dcd7ff;border-radius:12px;padding:10px 15px;cursor:pointer
+}
+.empty,.loading{text-align:center;color:#9da8c0;padding:30px}
+footer{text-align:center;padding:45px 10px 20px;color:#77829b;font-size:13px;line-height:1.7}
+footer strong{color:#aeb8d0}
+@media(max-width:700px){
+body{padding:12px}
+.hero{padding-top:25px}
+.logo{font-size:38px}
+.question-card{padding:20px;border-radius:20px}
+.options{grid-template-columns:1fr}
+.movie-card{grid-template-columns:1fr}
+.poster{width:120px;height:175px}
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<section class="hero">
+<div class="logo">🎬</div>
+<h1>Film Finder</h1>
+<p>Nasıl bir film istediğini anlat. Film Finder sana buna en uygun filmleri bulsun.</p>
+</section>
+
+<div class="progress-wrap">
+<div class="progress">
+<div class="progress-bar" id="progressBar"></div>
+</div>
+</div>
+
+<section id="questionsContainer"></section>
+
+<div class="action-area">
+<button id="recommendButton">🎬 ÖNERİLERİ GETİR</button>
+</div>
+
+<section class="results-section" id="resultsSection">
+<div class="results-title">
+<h2>🎬 SİZE ÖZEL ÖNERİLER</h2>
+<p id="resultsSubtitle">Sorularını cevapladıktan sonra önerilerin burada görünecek.</p>
+</div>
+<div id="results" class="results">
+<div class="empty">Henüz öneri oluşturulmadı.</div>
+</div>
+</section>
+
+<footer>
+<strong>Veri Kaynakları & Atıflar</strong><br>
+Film verilerinin oluşturulmasında IMDb, TMDB ve Wikidata gibi
+harici veri kaynaklarından yararlanılmaktadır.
+Film Finder bu servislerin resmi ürünü değildir.
+</footer>
+
+</div>
+
+<script>
+const QUESTIONS = [
+{
+key:"mood",
+title:"Filmin atmosferi nasıl olsun?",
+options:[
+["dark","Karanlık","Gerilimli, karanlık ve yoğun"],
+["mysterious","Gizemli","Merak uyandıran ve bilinmezlik içeren"],
+["emotional","Duygusal","Duygusal ve karakter odaklı"],
+["exciting","Heyecanlı","Sürükleyici ve tempolu"],
+["fun","Eğlenceli","Keyifli ve neşeli"],
+["epic","Destansı","Büyük ölçekli ve etkileyici"],
+["strange","Tuhaf","Alışılmışın dışında"],
+["calm","Sakin","Daha huzurlu ve yavaş"]
+]},
+{
+key:"story",
+title:"Hikâyede en çok ne ilgini çeker?",
+options:[
+["character","Karakter","Karakterlerin gelişimi"],
+["mystery","Gizem","Çözülmesi gereken sırlar"],
+["survival","Hayatta kalma","Zorlu koşullarda mücadele"],
+["journey","Yolculuk","Fiziksel veya içsel yolculuk"],
+["relationship","İlişkiler","İnsanlar arasındaki ilişkiler"],
+["crime","Suç","Suç ve soruşturma"],
+["war","Savaş","Savaş ve çatışmalar"],
+["idea","Fikir","Büyük fikirler ve düşünceler"]
+]},
+{
+key:"pace",
+title:"Filmin temposu nasıl olsun?",
+options:[
+["slow","Yavaş","Sakin ilerleyen"],
+["balanced","Dengeli","Ne çok hızlı ne çok yavaş"],
+["fast","Hızlı","Sürekli hareketli"]
+]},
+{
+key:"thinking",
+title:"Film seni ne kadar düşündürsün?",
+options:[
+["easy","Rahat","Kolay takip edilen"],
+["medium","Orta","Biraz düşünmeye iten"],
+["deep","Derin","Fikirleri üzerinde düşündüren"],
+["very_deep","Çok derin","Uzun süre düşündüren"]
+]},
+{
+key:"tension",
+title:"Gerilim seviyesi nasıl olsun?",
+options:[
+["none","Olmasın","Gerilim istemiyorum"],
+["low","Az","Hafif gerilim"],
+["medium","Orta","Dengeli gerilim"],
+["high","Yüksek","Yoğun gerilim"]
+]},
+{
+key:"action",
+title:"Ne kadar aksiyon istiyorsun?",
+options:[
+["none","Hiç","Aksiyon önemli değil"],
+["some","Biraz","Arada aksiyon olsun"],
+["much","Çok","Bol aksiyon"],
+["constant","Sürekli","Aksiyon hiç durmasın"]
+]},
+{
+key:"humor",
+title:"Mizah nasıl olsun?",
+options:[
+["none","Olmasın","Ciddi bir film"],
+["light","Hafif","Arada gülümseten"],
+["much","Bol","Sık sık mizah"],
+["comedy","Komedi","Ana unsur komedi"]
+]},
+{
+key:"ending",
+title:"Final konusunda tercihin var mı?",
+options:[
+["happy","Mutlu","İç rahatlatan"],
+["emotional","Duygusal","Duygusal etki bırakan"],
+["dark","Karanlık","Daha sert bir final"],
+["unexpected","Beklenmedik","Şaşırtan"],
+["any","Fark etmez","Final önemli değil"]
+]},
+{
+key:"world",
+title:"Hikâye hangi dünyada geçsin?",
+options:[
+["real","Gerçek dünya","Günümüzde veya gerçek hayatta"],
+["historical","Tarih","Geçmiş dönemlerde"],
+["future","Gelecek","Gelecekte"],
+["fantasy","Fantastik","Fantastik bir dünyada"],
+["unknown","Bilinmeyen","Alışılmışın dışında"],
+["any","Fark etmez","Dünya önemli değil"]
+]},
+{
+key:"characters",
+title:"Karakterlerde ne arıyorsun?",
+options:[
+["strong","Güçlü karakterler","Karakterlerin öne çıktığı"],
+["complex","Karmaşık","Çok katmanlı karakterler"],
+["relatable","Tanıdık","Kendine yakın hissedebileceğin"],
+["ensemble","Topluluk","Birden fazla önemli karakter"],
+["villain","Güçlü kötü karakter","Etkileyici antagonist"],
+["any","Fark etmez","Karakter yapısı önemli değil"]
+]},
+{
+key:"romance",
+title:"Romantizm ne kadar olsun?",
+options:[
+["none","Hiç","Romantizm istemiyorum"],
+["background","Arka planda","Hikâyenin küçük bir parçası"],
+["important","Önemli","Hikâyede belirgin"],
+["main","Ana konu","Romantizm merkezde"]
+]},
+{
+key:"genre",
+title:"Hangi türleri istiyorsun?",
+multiple:true,
+options:[
+["Action","Aksiyon","Enerjik ve hareketli"],
+["Adventure","Macera","Keşif ve yolculuk"],
+["Comedy","Komedi","Mizah ağırlıklı"],
+["Crime","Suç","Suç dünyası ve soruşturmalar"],
+["Drama","Dram","Karakter ve duygu odaklı"],
+["Fantasy","Fantastik","Fantastik dünyalar"],
+["Horror","Korku","Korku ve dehşet"],
+["Mystery","Gizem","Sırlar ve bilinmezlik"],
+["Romance","Romantik","Aşk ve ilişkiler"],
+["Science Fiction","Bilim Kurgu","Bilim ve gelecek"],
+["Thriller","Gerilim","Yoğun merak ve gerilim"]
+]},
+{
+key:"length",
+title:"Film uzunluğu nasıl olsun?",
+options:[
+["short","Kısa","Yaklaşık 90 dakika civarı"],
+["normal","Normal","Yaklaşık 2 saat"],
+["long","Uzun","2 saatten daha uzun"],
+["any","Fark etmez","Süre önemli değil"]
+]},
+{
+key:"aftertaste",
+title:"Film bittikten sonra sende ne bıraksın?",
+options:[
+["happy","Mutlu","İyi hissettirsin"],
+["emotional","Duygusal","Duygusal etki bıraksın"],
+["thinking","Düşündüren","Üzerine düşündürsün"],
+["shocked","Şaşırtan","Uzun süre şaşkın bıraksın"],
+["excited","Heyecanlı","Enerji versin"],
+["calm","Sakin","Huzurlu hissettirsin"]
+]}
+];
+
+const selections = {};
+const container = document.getElementById("questionsContainer");
+const progressBar = document.getElementById("progressBar");
+const recommendButton = document.getElementById("recommendButton");
+const results = document.getElementById("results");
+const resultsSection = document.getElementById("resultsSection");
+const resultsSubtitle = document.getElementById("resultsSubtitle");
+
+function updateProgress(){
+let answered=0;
+
+QUESTIONS.forEach(q=>{
+const value=selections[q.key];
+
+if(value!==undefined &&
+value!==null &&
+(!Array.isArray(value)||value.length>0)){
+answered++;
+}
+});
+
+progressBar.style.width =
+Math.round(answered/QUESTIONS.length*100)+"%";
+}
+
+function renderQuestions(){
+
+container.innerHTML="";
+
+QUESTIONS.forEach((question,index)=>{
+
+const card=document.createElement("div");
+card.className="question-card";
+
+const number=document.createElement("div");
+number.className="question-number";
+number.textContent=
+"SORU "+(index+1)+" / "+QUESTIONS.length;
+
+const title=document.createElement("h2");
+title.textContent=question.title;
+
+const options=document.createElement("div");
+options.className="options";
+
+question.options.forEach(optionData=>{
+
+const button=document.createElement("button");
+button.type="button";
+button.className="option";
+
+const optionTitle=document.createElement("div");
+optionTitle.className="option-title";
+optionTitle.textContent=optionData[1];
+
+const description=document.createElement("div");
+description.className="option-description";
+description.textContent=optionData[2];
+
+button.appendChild(optionTitle);
+button.appendChild(description);
+
+button.addEventListener("click",()=>{
+
+if(question.multiple){
+
+if(!Array.isArray(selections[question.key])){
+selections[question.key]=[];
+}
+
+const current=selections[question.key];
+const position=current.indexOf(optionData[0]);
+
+if(position>=0){
+current.splice(position,1);
+button.classList.remove("selected");
+}else{
+current.push(optionData[0]);
+button.classList.add("selected");
+}
+
+if(current.length===0){
+delete selections[question.key];
+}
+
+}else{
+
+options.querySelectorAll(".option").forEach(el=>{
+el.classList.remove("selected");
+});
+
+button.classList.add("selected");
+selections[question.key]=optionData[0];
+
+}
+
+updateProgress();
+
+});
+
+options.appendChild(button);
+
+});
+
+card.appendChild(number);
+card.appendChild(title);
+card.appendChild(options);
+container.appendChild(card);
+
+});
+
+updateProgress();
+}
+
+function renderMovies(movies){
+
+if(!movies || movies.length===0){
+results.innerHTML=
+'<div class="empty">Uygun film bulunamadı.</div>';
+return;
+}
+
+results.innerHTML="";
+
+movies.forEach(movie=>{
+
+const card=document.createElement("article");
+card.className="movie-card";
+
+const poster=document.createElement("img");
+poster.className="poster";
+poster.alt=movie.title || "Film";
+poster.src=movie.poster_url || "";
+
+poster.onerror=()=>{
+poster.style.display="none";
+};
+
+const info=document.createElement("div");
+info.className="movie-info";
+
+const title=document.createElement("h3");
+title.textContent=movie.title || "Bilinmeyen film";
+
+const meta=document.createElement("div");
+meta.className="movie-meta";
+meta.textContent=
+(movie.year||"")+
+" • "+
+(movie.duration||"")+" dk • "+
+(movie.rating||"")+"/10";
+
+const match=document.createElement("div");
+match.className="match";
+match.textContent=
+"%"+(movie.match_score||0)+" eşleşme";
+
+const reason=document.createElement("div");
+reason.className="reason";
+
+reason.innerHTML=
+"<strong>Neden bunu önerdik?</strong><br>"+
+(movie.recommendation_reason||
+"Tercihlerine uygun olduğu için.");
+
+const detail=document.createElement("button");
+detail.className="detail-button";
+detail.textContent="🎬 Film detayları";
+
+detail.addEventListener("click",()=>{
+alert(
+(movie.title||"Film")+
+"\n\n"+
+(movie.description||
+"Film hakkında detay bulunamadı.")
+);
+});
+
+info.appendChild(title);
+info.appendChild(meta);
+info.appendChild(match);
+info.appendChild(reason);
+info.appendChild(detail);
+
+card.appendChild(poster);
+card.appendChild(info);
+
+results.appendChild(card);
+
+});
+}
+
+async function getRecommendations(){
+
+recommendButton.disabled=true;
+recommendButton.textContent="⏳ ÖNERİLER HAZIRLANIYOR...";
+
+results.innerHTML=
+'<div class="loading">🎬 Filmler değerlendiriliyor...</div>';
+
+try{
+
+const response=await fetch(
+"/api/recommend-smart",
+{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify(selections)
+}
+);
+
+if(!response.ok){
+throw new Error("API yanıt vermedi.");
+}
+
+const movies=await response.json();
+
+renderMovies(movies);
+
+resultsSubtitle.textContent=
+movies.length+
+" film senin tercihlerine göre seçildi.";
+
+requestAnimationFrame(()=>{
+resultsSection.scrollIntoView({
+behavior:"smooth",
+block:"start"
+});
+});
+
+}catch(error){
+
+console.error(error);
+
+results.innerHTML=
+'<div class="empty">'+
+'❌ Öneriler alınırken bir hata oluştu.'+
+'<br><br>'+
+'Sunucunun çalıştığından emin ol.'+
+'</div>';
+
+resultsSection.scrollIntoView({
+behavior:"smooth",
+block:"start"
+});
+
+}finally{
+
+recommendButton.disabled=false;
+recommendButton.textContent="🎬 ÖNERİLERİ GETİR";
+
+}
+}
+
+recommendButton.addEventListener(
+"click",
+getRecommendations
+);
+
+renderQuestions();
+</script>
+
+</body>
+</html>
